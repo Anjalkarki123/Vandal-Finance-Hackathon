@@ -1248,6 +1248,271 @@ function AIInsights({expenses,profile,debts}) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// CRISIS SURVIVAL MODE — Economic Crash & Inflation Defense
+// ─────────────────────────────────────────────────────────────────────────────
+
+const INFLATION_DATA = [
+  {year:"2019",rate:1.8},{year:"2020",rate:1.2},{year:"2021",rate:4.7},
+  {year:"2022",rate:8.0},{year:"2023",rate:4.1},{year:"2024",rate:2.9},{year:"2025",rate:3.2},
+];
+
+const ESSENTIAL_CATS = ["Food","Rent","Transport","Utilities","Health"];
+const NON_ESSENTIAL_CATS = ["Entertainment","Shopping","Education","Other"];
+
+function CrisisMode({expenses,profile,debts,setPage}) {
+  const [inflationRate,setInflationRate]=useState(8.0);
+  const [months,setMonths]=useState(6);
+  const [crisisActive,setCrisisActive]=useState(false);
+
+  const spent=expenses.reduce((s,e)=>s+Number(e.amount),0);
+  const totalDebt=debts.reduce((s,d)=>s+Number(d.balance),0);
+  const monthlyDebtPay=debts.reduce((s,d)=>s+Number(d.minPayment||0),0);
+
+  const essentialSpend=expenses.filter(e=>ESSENTIAL_CATS.includes(e.cat)).reduce((s,e)=>s+e.amount,0);
+  const nonEssentialSpend=expenses.filter(e=>NON_ESSENTIAL_CATS.includes(e.cat)).reduce((s,e)=>s+e.amount,0);
+
+  const monthlyEssentials=essentialSpend+monthlyDebtPay;
+  const emergencyTarget=monthlyEssentials*months;
+  const emergencyPct=pct(profile.savings,emergencyTarget);
+  const survivalMonths=monthlyEssentials>0?Math.floor(profile.savings/monthlyEssentials):0;
+
+  const monthlyInflationHit=(essentialSpend*(inflationRate/100));
+  const yearlyInflationHit=monthlyInflationHit*12;
+  const adjustedBudget=profile.budget/(1+inflationRate/100);
+  const realPurchasingPower=profile.income/(1+inflationRate/100);
+  const purchasingPowerLoss=profile.income-realPurchasingPower;
+
+  const score=useMemo(()=>{
+    let sc=0;
+    if(survivalMonths>=6)sc+=30; else if(survivalMonths>=3)sc+=20; else if(survivalMonths>=1)sc+=10;
+    if(nonEssentialSpend/Math.max(spent,1)<0.3)sc+=20; else if(nonEssentialSpend/Math.max(spent,1)<0.5)sc+=10;
+    if(totalDebt<profile.income*3)sc+=15; else if(totalDebt<profile.income*6)sc+=8;
+    if(profile.savings>profile.income*3)sc+=20; else if(profile.savings>profile.income)sc+=10;
+    const saveRate=(profile.income-spent)/Math.max(profile.income,1);
+    if(saveRate>=0.2)sc+=15; else if(saveRate>=0.1)sc+=8;
+    return Math.min(100,sc);
+  },[survivalMonths,nonEssentialSpend,spent,totalDebt,profile]);
+
+  const catInflationData=CAT_KEYS.map(c=>{
+    const current=expenses.filter(e=>e.cat===c).reduce((s,e)=>s+e.amount,0);
+    const inflated=current*(1+inflationRate/100);
+    return{name:c,icon:CATS[c].icon,color:CATS[c].color,current,inflated:Math.round(inflated),increase:Math.round(inflated-current)};
+  }).filter(c=>c.current>0).sort((a,b)=>b.increase-a.increase);
+
+  const suggestions=useMemo(()=>{
+    const sg=[];
+    if(nonEssentialSpend>spent*0.3)sg.push({icon:"\u2702\uFE0F",title:"Cut Non-Essentials",body:"You spend "+fmt(nonEssentialSpend)+" ("+Math.round(nonEssentialSpend/Math.max(spent,1)*100)+"%) on non-essentials. In a crisis, cut this to under 15%.",save:fmt(Math.round(nonEssentialSpend*0.5)),priority:"high"});
+    if(survivalMonths<3)sg.push({icon:"\uD83C\uDFE6",title:"Build Emergency Fund",body:"You can only survive "+survivalMonths+" month(s) on savings. Target at least 6 months of essentials ("+fmt(emergencyTarget)+").",save:fmt(emergencyTarget-profile.savings),priority:"critical"});
+    if(totalDebt>0)sg.push({icon:"\uD83D\uDCB3",title:"Accelerate Debt Payoff",body:fmt(totalDebt)+" in debt costs you "+fmt(monthlyDebtPay)+"/mo minimum. Focus on high-interest debt first.",save:fmt(Math.round(monthlyDebtPay*0.2)),priority:debts.some(d=>d.rate>inflationRate)?"high":"medium"});
+    const foodSpend=expenses.filter(e=>e.cat==="Food").reduce((t,e)=>t+e.amount,0);
+    if(foodSpend>0)sg.push({icon:"\uD83D\uDED2",title:"Stockpile & Bulk Buy",body:"Food costs rise fastest in inflation. Your "+fmt(foodSpend)+"/mo food budget could become "+fmt(Math.round(foodSpend*(1+inflationRate/100)))+" at "+inflationRate+"% inflation.",save:fmt(Math.round(foodSpend*0.15)),priority:"medium"});
+    sg.push({icon:"\uD83D\uDCA1",title:"Reduce Utility Costs",body:"Switch to energy-saving habits. Cancel unused subscriptions. Every dollar saved is a dollar that fights inflation.",save:fmt(50),priority:"medium"});
+    sg.push({icon:"\uD83D\uDCC8",title:"Inflation-Proof Income",body:"Consider side income, skill upgrades, or negotiating a raise. Your income needs to grow faster than inflation to maintain purchasing power.",save:fmt(Math.round(purchasingPowerLoss)),priority:"high"});
+    return sg;
+  },[nonEssentialSpend,spent,survivalMonths,emergencyTarget,totalDebt,monthlyDebtPay,profile,debts,inflationRate,expenses,purchasingPowerLoss]);
+
+  const PRIORITY_COL={critical:PALETTE.warning,high:PALETTE.amber,medium:PALETTE.primary};
+
+  const survivalData=Array.from({length:13},(_,i)=>{
+    const savLeft=Math.max(0,profile.savings-monthlyEssentials*i);
+    const inflatedSav=Math.max(0,profile.savings-monthlyEssentials*(1+inflationRate/100/12)*i);
+    return{month:"M"+i,normal:Math.round(savLeft),inflated:Math.round(inflatedSav)};
+  });
+
+  return(
+    <div>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
+        <div>
+          <div style={{fontSize:20,fontWeight:800,color:PALETTE.text}}>Crisis Survival Mode</div>
+          <div style={{fontSize:13,color:PALETTE.muted,marginTop:3}}>Prepare for economic crashes & high inflation periods</div>
+        </div>
+        <Btn variant={crisisActive?"danger":"primary"} onClick={()=>setCrisisActive(!crisisActive)}>
+          {crisisActive?"\uD83D\uDD34 Crisis Mode ON":"\uD83D\uDEE1\uFE0F Activate Crisis Mode"}
+        </Btn>
+      </div>
+
+      {crisisActive&&(
+        <div style={{background:PALETTE.warning+"15",border:"1px solid "+PALETTE.warning+"44",borderRadius:12,padding:"14px 18px",marginBottom:18,display:"flex",alignItems:"center",gap:12}}>
+          <span style={{fontSize:24}}>{"\uD83D\uDEA8"}</span>
+          <div>
+            <div style={{fontSize:14,fontWeight:700,color:PALETTE.warning}}>Crisis Mode Active</div>
+            <div style={{fontSize:12,color:PALETTE.muted,marginTop:2}}>All budgets adjusted for inflation. Non-essential spending flagged. Emergency recommendations shown.</div>
+          </div>
+        </div>
+      )}
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(280px,1fr))",gap:14,marginBottom:18}}>
+        <div style={{...s.card,padding:24}}>
+          <div style={{fontSize:11,fontWeight:700,color:PALETTE.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:12}}>Recession Readiness Score</div>
+          <div style={{display:"flex",alignItems:"center",gap:20}}>
+            <div style={{position:"relative",width:90,height:90,flexShrink:0}}>
+              <svg width={90} height={90} viewBox="0 0 90 90">
+                <circle cx={45} cy={45} r={38} fill="none" stroke={PALETTE.border} strokeWidth={9}/>
+                <circle cx={45} cy={45} r={38} fill="none" stroke={score>=70?PALETTE.accent:score>=40?PALETTE.amber:PALETTE.warning} strokeWidth={9} strokeDasharray={(score/100)*238.8+" "+238.8} strokeDashoffset={59.7} strokeLinecap="round"/>
+              </svg>
+              <div style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,fontWeight:900,color:PALETTE.text}}>{score}</div>
+            </div>
+            <div>
+              <div style={{fontSize:18,fontWeight:800,color:score>=70?PALETTE.accent:score>=40?PALETTE.amber:PALETTE.warning}}>
+                {score>=70?"Well Prepared":score>=40?"Partially Ready":"Vulnerable"}
+              </div>
+              <div style={{fontSize:12,color:PALETTE.muted,marginTop:4,lineHeight:1.5}}>
+                {score>=70?"You have strong defenses against economic downturns.":score>=40?"Some gaps in your crisis preparedness.":"Immediate action needed to protect finances."}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style={{...s.card,padding:24,borderLeft:"3px solid "+(survivalMonths>=6?PALETTE.accent:survivalMonths>=3?PALETTE.amber:PALETTE.warning)}}>
+          <div style={{fontSize:11,fontWeight:700,color:PALETTE.muted,letterSpacing:"0.06em",textTransform:"uppercase",marginBottom:8}}>Emergency Fund Status</div>
+          <div style={{fontSize:28,fontWeight:900,color:PALETTE.text,marginBottom:4}}>{survivalMonths} months</div>
+          <div style={{fontSize:13,color:PALETTE.muted,marginBottom:12}}>of essential expenses covered by savings</div>
+          <ProgBar value={profile.savings} max={emergencyTarget} color={survivalMonths>=6?PALETTE.accent:survivalMonths>=3?PALETTE.amber:PALETTE.warning} label={fmt(profile.savings)+" of "+fmt(emergencyTarget)+" target"} subLabel={emergencyPct+"%"} h={8}/>
+          <div style={{display:"flex",justifyContent:"space-between",marginTop:10}}>
+            <label style={{fontSize:11,color:PALETTE.muted}}>Target months:</label>
+            <div style={{display:"flex",gap:6}}>
+              {[3,6,9,12].map(m=>(
+                <button key={m} onClick={()=>setMonths(m)} style={{padding:"3px 10px",borderRadius:6,border:"1px solid "+(months===m?PALETTE.primary:PALETTE.border),background:months===m?PALETTE.primary+"30":"transparent",color:months===m?PALETTE.primaryLight:PALETTE.muted,fontSize:11,fontWeight:600,cursor:"pointer",fontFamily:"inherit"}}>{m}</button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:12,marginBottom:18}}>
+        <StatCard icon={"\uD83D\uDEE1\uFE0F"} label="Essential Spend" value={fmt(essentialSpend)} color={PALETTE.accent} sub={Math.round(essentialSpend/Math.max(spent,1)*100)+"% of total"}/>
+        <StatCard icon={"\uD83C\uDFAF"} label="Non-Essential" value={fmt(nonEssentialSpend)} color={PALETTE.amber} sub={Math.round(nonEssentialSpend/Math.max(spent,1)*100)+"% \u2014 cut in crisis"}/>
+        <StatCard icon={"\uD83D\uDCC9"} label="Purchasing Power Loss" value={fmt(Math.round(purchasingPowerLoss))} color={PALETTE.warning} sub={"at "+inflationRate+"% inflation"}/>
+        <StatCard icon={"\uD83D\uDCB0"} label="Real Income" value={fmt(Math.round(realPurchasingPower))} color={PALETTE.primary} sub="adjusted for inflation"/>
+      </div>
+
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(300px,1fr))",gap:16,marginBottom:18}}>
+        <div style={{...s.card,padding:22}}>
+          <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:14}}>Inflation Simulator</div>
+          <div style={{marginBottom:16}}>
+            <div style={{display:"flex",justifyContent:"space-between",marginBottom:8}}>
+              <span style={{fontSize:12,color:PALETTE.muted}}>Inflation Rate</span>
+              <span style={{fontSize:16,fontWeight:800,color:inflationRate>=6?PALETTE.warning:inflationRate>=4?PALETTE.amber:PALETTE.accent}}>{inflationRate}%</span>
+            </div>
+            <input type="range" min={0} max={20} step={0.5} value={inflationRate} onChange={e=>setInflationRate(Number(e.target.value))} style={{width:"100%",accentColor:PALETTE.primary}}/>
+            <div style={{display:"flex",justifyContent:"space-between",fontSize:10,color:PALETTE.dim,marginTop:4}}>
+              <span>0% (Stable)</span><span>10% (High)</span><span>20% (Hyper)</span>
+            </div>
+          </div>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"8px 12px",background:"rgba(255,255,255,0.03)",borderRadius:8}}>
+              <span style={{fontSize:12,color:PALETTE.muted}}>Monthly budget (real value)</span>
+              <span style={{fontSize:13,fontWeight:700,color:PALETTE.text}}>{fmt(Math.round(adjustedBudget))}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"8px 12px",background:"rgba(255,255,255,0.03)",borderRadius:8}}>
+              <span style={{fontSize:12,color:PALETTE.muted}}>Monthly inflation cost</span>
+              <span style={{fontSize:13,fontWeight:700,color:PALETTE.warning}}>{fmt(Math.round(monthlyInflationHit))}</span>
+            </div>
+            <div style={{display:"flex",justifyContent:"space-between",padding:"8px 12px",background:"rgba(255,255,255,0.03)",borderRadius:8}}>
+              <span style={{fontSize:12,color:PALETTE.muted}}>Yearly extra cost</span>
+              <span style={{fontSize:13,fontWeight:700,color:PALETTE.warning}}>{fmt(Math.round(yearlyInflationHit))}</span>
+            </div>
+          </div>
+        </div>
+
+        <div style={{...s.card,padding:22}}>
+          <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:14}}>US Inflation Trend (CPI)</div>
+          <ResponsiveContainer width="100%" height={200}>
+            <AreaChart data={INFLATION_DATA}>
+              <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.border}/>
+              <XAxis dataKey="year" tick={{fill:PALETTE.muted,fontSize:11}} stroke={PALETTE.border}/>
+              <YAxis tick={{fill:PALETTE.muted,fontSize:11}} stroke={PALETTE.border} tickFormatter={v=>v+"%"}/>
+              <Tooltip contentStyle={{background:PALETTE.card,border:"1px solid "+PALETTE.border,borderRadius:10,color:PALETTE.text}} formatter={v=>[v+"%","Inflation"]}/>
+              <ReferenceLine y={inflationRate} stroke={PALETTE.warning} strokeDasharray="5 5" label={{value:"Your sim: "+inflationRate+"%",fill:PALETTE.warning,fontSize:10}}/>
+              <Area type="monotone" dataKey="rate" stroke={PALETTE.primary} fill={PALETTE.primary+"30"} strokeWidth={2}/>
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      <div style={{...s.card,padding:22,marginBottom:18}}>
+        <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:4}}>Savings Burn-Down: How Long Can You Survive?</div>
+        <div style={{fontSize:12,color:PALETTE.muted,marginBottom:14}}>Projecting savings depletion with and without inflation impact</div>
+        <ResponsiveContainer width="100%" height={220}>
+          <AreaChart data={survivalData}>
+            <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.border}/>
+            <XAxis dataKey="month" tick={{fill:PALETTE.muted,fontSize:11}} stroke={PALETTE.border}/>
+            <YAxis tick={{fill:PALETTE.muted,fontSize:11}} stroke={PALETTE.border} tickFormatter={v=>"$"+Math.round(v/1000)+"k"}/>
+            <Tooltip contentStyle={{background:PALETTE.card,border:"1px solid "+PALETTE.border,borderRadius:10,color:PALETTE.text}} formatter={v=>[fmt(v)]}/>
+            <Area type="monotone" dataKey="normal" stroke={PALETTE.accent} fill={PALETTE.accent+"20"} strokeWidth={2} name="Without Inflation"/>
+            <Area type="monotone" dataKey="inflated" stroke={PALETTE.warning} fill={PALETTE.warning+"20"} strokeWidth={2} name="With Inflation"/>
+            <Legend wrapperStyle={{fontSize:11,color:PALETTE.muted}}/>
+          </AreaChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div style={{...s.card,padding:22,marginBottom:18}}>
+        <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:4}}>Inflation Impact by Category</div>
+        <div style={{fontSize:12,color:PALETTE.muted,marginBottom:14}}>How {inflationRate}% inflation affects each spending category</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {catInflationData.map(c=>(
+            <div key={c.name} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:"rgba(255,255,255,0.02)",borderRadius:10}}>
+              <span style={{fontSize:18,width:28,textAlign:"center"}}>{c.icon}</span>
+              <div style={{flex:1}}>
+                <div style={{display:"flex",justifyContent:"space-between",marginBottom:4}}>
+                  <span style={{fontSize:13,fontWeight:600,color:PALETTE.text}}>{c.name}</span>
+                  <span style={{fontSize:12,fontWeight:700,color:PALETTE.warning}}>+{fmt(c.increase)}</span>
+                </div>
+                <div style={{display:"flex",gap:4,alignItems:"center"}}>
+                  <div style={{flex:1,background:"rgba(255,255,255,0.06)",borderRadius:99,height:6,overflow:"hidden",position:"relative"}}>
+                    <div style={{width:pct(c.current,c.inflated)+"%",height:"100%",background:c.color,borderRadius:99}}/>
+                  </div>
+                  <span style={{fontSize:10,color:PALETTE.muted,minWidth:90,textAlign:"right"}}>{fmt(c.current)} {"\u2192"} {fmt(c.inflated)}</span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{...s.card,padding:22,marginBottom:18}}>
+        <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:4}}>Crisis Survival Action Plan</div>
+        <div style={{fontSize:12,color:PALETTE.muted,marginBottom:14}}>Personalized recommendations based on your financial data</div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          {suggestions.map((sg,i)=>(
+            <div key={i} style={{background:(PRIORITY_COL[sg.priority]||PALETTE.primary)+"0D",border:"1px solid "+(PRIORITY_COL[sg.priority]||PALETTE.primary)+"33",borderRadius:12,padding:"14px 18px"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6}}>
+                <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                  <span style={{fontSize:18}}>{sg.icon}</span>
+                  <span style={{fontSize:14,fontWeight:700,color:PRIORITY_COL[sg.priority]||PALETTE.primary}}>{sg.title}</span>
+                </div>
+                <Chip color={PRIORITY_COL[sg.priority]||PALETTE.primary}>{sg.priority}</Chip>
+              </div>
+              <p style={{margin:"0 0 6px",fontSize:13,color:PALETTE.muted,lineHeight:1.55}}>{sg.body}</p>
+              <div style={{fontSize:12,fontWeight:700,color:PALETTE.accent}}>Potential savings: {sg.save}/mo</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div style={{...s.card,padding:22}}>
+        <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:14}}>Recession-Proof Checklist</div>
+        <div style={{display:"flex",flexDirection:"column",gap:8}}>
+          {[
+            {check:survivalMonths>=6,text:"Emergency fund covers 6+ months of essentials"},
+            {check:nonEssentialSpend/Math.max(spent,1)<0.3,text:"Non-essential spending under 30% of total"},
+            {check:totalDebt<profile.income*3,text:"Total debt under 3x monthly income"},
+            {check:(profile.income-spent)/Math.max(profile.income,1)>=0.2,text:"Saving at least 20% of income"},
+            {check:profile.savings>profile.income,text:"Savings exceed one month's income"},
+            {check:debts.filter(d=>d.rate>10).length===0,text:"No high-interest debt (>10% APR)"},
+          ].map((item,i)=>(
+            <div key={i} style={{display:"flex",alignItems:"center",gap:12,padding:"10px 14px",background:item.check?"rgba(34,197,94,0.06)":"rgba(239,68,68,0.06)",borderRadius:10,border:"1px solid "+(item.check?PALETTE.accent:PALETTE.warning)+"22"}}>
+              <span style={{fontSize:18,flexShrink:0}}>{item.check?"\u2705":"\u274C"}</span>
+              <span style={{fontSize:13,color:item.check?PALETTE.accent:PALETTE.muted,fontWeight:item.check?600:400}}>{item.text}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // NOTIFICATIONS CENTER
 // ─────────────────────────────────────────────────────────────────────────────
 function NotifCenter({expenses,profile,notifLog,setNotifLog,rules,setRules}) {
@@ -1698,6 +1963,7 @@ export default function App() {
     {id:"expenses", icon:"💸",label:"Expenses"},
     {id:"debts",    icon:"💳",label:"Debt Tracker"},
     {id:"analytics",icon:"📈",label:"Analytics"},
+    {id:"crisis",icon:"🛡️",label:"Crisis Mode"},
     {id:"notes",    icon:"📝",label:"Notes"},
     {id:"ai",       icon:"✨",label:"AI Insights"},
     {id:"notifs",   icon:"🔔",label:"Alerts",badge:unread},
@@ -1717,6 +1983,7 @@ export default function App() {
       case "expenses":  return <Expenses  expenses={expenses} setExpenses={setExpenses} profile={profile}/>;
       case "debts":     return <DebtTracker debts={debts} setDebts={setDebts}/>;
       case "analytics": return <Analytics expenses={expenses} profile={profile} debts={debts}/>;
+      case "crisis":    return <CrisisMode expenses={expenses} profile={profile} debts={debts} setPage={setPage}/>;
       case "notes":     return <Notes     notes={notes} setNotes={setNotes}/>;
       case "ai":        return <AIInsights expenses={expenses} profile={profile} debts={debts}/>;
       case "notifs":    return <NotifCenter expenses={expenses} profile={profile} notifLog={notifLog} setNotifLog={setNotifLog} rules={rules} setRules={setRules}/>;
