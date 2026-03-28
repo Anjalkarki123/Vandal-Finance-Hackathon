@@ -40,29 +40,43 @@ const clamp = (v,a,b) => Math.min(b, Math.max(a, v));
 
 // ── Seed Data ─────────────────────────────────────────────────────────────────
 const SEED_EXP = [
-  {id:nid(),date:"2025-03-01",cat:"Rent",     amount:1200,note:"March rent"},
-  {id:nid(),date:"2025-03-03",cat:"Food",     amount:87,  note:"Weekly groceries"},
-  {id:nid(),date:"2025-03-07",cat:"Transport",amount:45,  note:"Bus pass"},
-  {id:nid(),date:"2025-03-09",cat:"Food",     amount:32,  note:"Dinner out"},
-  {id:nid(),date:"2025-03-12",cat:"Utilities",amount:80,  note:"Electric bill"},
-  {id:nid(),date:"2025-03-14",cat:"Food",     amount:94,  note:"Groceries"},
-  {id:nid(),date:"2025-03-17",cat:"Entertainment",amount:25,note:"Netflix + Spotify"},
-  {id:nid(),date:"2025-03-20",cat:"Health",   amount:60,  note:"Gym membership"},
-  {id:nid(),date:"2025-03-22",cat:"Food",     amount:41,  note:"Lunch"},
-  {id:nid(),date:"2025-03-25",cat:"Shopping", amount:120, note:"Clothing"},
+  {id:nid(),date:"2025-03-01",cat:"Rent",        amount:950, note:"March apartment rent"},
+  {id:nid(),date:"2025-03-01",cat:"Utilities",    amount:120, note:"Electric + water + internet"},
+  {id:nid(),date:"2025-03-02",cat:"Food",         amount:110, note:"Costco bulk groceries"},
+  {id:nid(),date:"2025-03-04",cat:"Transport",    amount:65,  note:"Gas + bus pass"},
+  {id:nid(),date:"2025-03-05",cat:"Health",       amount:45,  note:"Gym membership"},
+  {id:nid(),date:"2025-03-06",cat:"Education",    amount:85,  note:"Textbook - Econ 201"},
+  {id:nid(),date:"2025-03-07",cat:"Food",         amount:48,  note:"Dinner with friends"},
+  {id:nid(),date:"2025-03-09",cat:"Entertainment",amount:55,  note:"Netflix + Spotify + Hulu"},
+  {id:nid(),date:"2025-03-10",cat:"Shopping",     amount:140, note:"New jacket + shoes"},
+  {id:nid(),date:"2025-03-12",cat:"Food",         amount:92,  note:"Weekly groceries"},
+  {id:nid(),date:"2025-03-14",cat:"Transport",    amount:35,  note:"Uber rides"},
+  {id:nid(),date:"2025-03-15",cat:"Entertainment",amount:30,  note:"Movie tickets"},
+  {id:nid(),date:"2025-03-17",cat:"Food",         amount:65,  note:"Takeout + coffee runs"},
+  {id:nid(),date:"2025-03-18",cat:"Health",       amount:25,  note:"Pharmacy - cold medicine"},
+  {id:nid(),date:"2025-03-20",cat:"Shopping",     amount:75,  note:"Amazon order"},
+  {id:nid(),date:"2025-03-21",cat:"Food",         amount:38,  note:"Lunch on campus"},
+  {id:nid(),date:"2025-03-23",cat:"Entertainment",amount:45,  note:"Concert tickets"},
+  {id:nid(),date:"2025-03-24",cat:"Food",         amount:55,  note:"Date night dinner"},
+  {id:nid(),date:"2025-03-25",cat:"Transport",    amount:40,  note:"Gas fill-up"},
+  {id:nid(),date:"2025-03-26",cat:"Other",        amount:30,  note:"Laundry + misc"},
+  {id:nid(),date:"2025-03-27",cat:"Food",         amount:78,  note:"Groceries restock"},
+  {id:nid(),date:"2025-03-28",cat:"Savings",      amount:200, note:"Emergency fund contribution"},
 ];
 const SEED_DEBTS = [
-  {id:nid(),name:"Visa Credit Card",type:"credit_card",  balance:3400, rate:19.99, minPayment:85,  color:"#EF4444"},
-  {id:nid(),name:"Student Loan",    type:"student_loan", balance:12000,rate:5.5,   minPayment:130, color:"#F59E0B"},
-  {id:nid(),name:"Car Loan",        type:"car_loan",     balance:8500, rate:7.2,   minPayment:210, color:"#7C3AED"},
+  {id:nid(),name:"Discover Card",    type:"credit_card",  balance:2800, rate:22.99, minPayment:75,  color:"#EF4444"},
+  {id:nid(),name:"Federal Student Loan",type:"student_loan",balance:18500,rate:5.5, minPayment:180, color:"#F59E0B"},
+  {id:nid(),name:"Private Student Loan",type:"student_loan",balance:6200, rate:9.8, minPayment:95,  color:"#7C3AED"},
+  {id:nid(),name:"Best Buy Card",    type:"credit_card",  balance:650,  rate:26.99, minPayment:35,  color:"#EC4899"},
 ];
 const SEED_NOTES = [
-  {id:nid(),type:"monthly",date:"2025-03-01",title:"March Goals",content:"Cut dining out by 20%. Start emergency fund contributions."},
-  {id:nid(),type:"weekly", date:"2025-03-17",title:"Week 3 Check-in",content:"Overspent on food this week. Need to meal prep more."},
+  {id:nid(),type:"monthly",date:"2025-03-01",title:"March Budget Plan",content:"Inflation is hitting hard on groceries. Need to switch to bulk buying and meal prep. Target: save at least $400 this month toward emergency fund."},
+  {id:nid(),type:"weekly", date:"2025-03-17",title:"Mid-Month Check",content:"Overspent on entertainment this week. Gas prices up 15 cents. Need to cut back on Uber rides and cook more at home."},
+  {id:nid(),type:"daily",  date:"2025-03-25",title:"Recession Worry",content:"Heard about potential layoffs at part-time job. Need to review my emergency fund and figure out how many months I can survive if hours get cut."},
 ];
 const SEED_PROFILE = {
-  name:"Alex Johnson", income:5500, savings:8200, budget:3500,
-  limits:{Food:500,Rent:1400,Transport:200,Entertainment:150,Health:100,Shopping:200,Utilities:150,Education:100,Savings:300,Other:100},
+  name:"Jordan Rivera", income:3200, savings:5800, budget:2800,
+  limits:{Food:550,Rent:1000,Transport:200,Entertainment:120,Health:100,Shopping:200,Utilities:150,Education:150,Savings:250,Other:80},
 };
 
 // ── LOCAL STORAGE ─────────────────────────────────────────────────────────────
@@ -1879,6 +1893,8 @@ function OnboardingWizard({ onComplete }) {
 // MAIN APP
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
+  // Force fresh demo data for presentation
+  if(LS.get("bg_version","")!=="v2"){["bg_exp","bg_prof","bg_dbt","bg_nts","bg_goals","bg_nlog","bg_rules","bg_onboarded"].forEach(k=>localStorage.removeItem(k));LS.set("bg_version","v2");}
   const [onboarded,  setOnboarded]  = useState(()=>LS.get("bg_onboarded", false));
   const [page,       setPage]       = useState("dashboard");
   const [expenses,   setExpenses]   = useState(()=>LS.get("bg_exp",  SEED_EXP));
