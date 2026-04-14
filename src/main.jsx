@@ -7,3 +7,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <App />
   </React.StrictMode>
 )
+
+// Register service worker for PWA / iOS install support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/Vandal-Finance-Hackathon/sw.js')
+      .catch(() => {})
+  })
+}

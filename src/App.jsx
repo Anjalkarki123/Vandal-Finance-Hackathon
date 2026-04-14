@@ -86,6 +86,19 @@ const LS = {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
+// RESPONSIVE HOOK
+// ─────────────────────────────────────────────────────────────────────────────
+function useIsMobile() {
+  const [mob, setMob] = useState(() => window.innerWidth < 768);
+  useEffect(() => {
+    const h = () => setMob(window.innerWidth < 768);
+    window.addEventListener("resize", h);
+    return () => window.removeEventListener("resize", h);
+  }, []);
+  return mob;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // UI ATOMS
 // ─────────────────────────────────────────────────────────────────────────────
 const s = {
@@ -188,6 +201,7 @@ const AlertStrip = ({alerts}) => {
 // ─────────────────────────────────────────────────────────────────────────────
 function ExpenditureChart({ expenses, profile }) {
   const [view, setView] = useState("daily");
+  const mob = useIsMobile();
 
   const VIEWS = ["daily","weekly","monthly","yearly"];
   const VIEW_LABELS = { daily:"Daily", weekly:"Weekly", monthly:"Monthly", yearly:"Yearly" };
@@ -399,7 +413,7 @@ function ExpenditureChart({ expenses, profile }) {
       </div>
 
       {/* The chart */}
-      <ResponsiveContainer width="100%" height={240}>
+      <ResponsiveContainer width="100%" height={mob ? 180 : 240}>
         <LineChart data={chartData} margin={{top:8,right:10,left:0,bottom:0}}>
           <defs>
             <linearGradient id="actualGrad" x1="0" y1="0" x2="1" y2="0">
@@ -498,6 +512,7 @@ function ExpenditureChart({ expenses, profile }) {
 // DASHBOARD
 // ─────────────────────────────────────────────────────────────────────────────
 function Dashboard({expenses,profile,debts,setPage}) {
+  const mob = useIsMobile();
   const spent  = expenses.reduce((s,e)=>s+Number(e.amount),0);
   const remain = profile.budget - spent;
   const p      = pct(spent,profile.budget);
@@ -566,7 +581,7 @@ function Dashboard({expenses,profile,debts,setPage}) {
         {/* Pie chart */}
         <div style={{...s.card,padding:22}}>
           <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:14}}>Spending by Category</div>
-          <ResponsiveContainer width="100%" height={160}>
+          <ResponsiveContainer width="100%" height={mob ? 130 : 160}>
             <PieChart>
               <Pie data={pieData} cx="50%" cy="50%" innerRadius={46} outerRadius={72} paddingAngle={3} dataKey="value">
                 {pieData.map((e,i)=><Cell key={i} fill={e.color}/>)}
@@ -754,6 +769,7 @@ function Expenses({expenses,setExpenses,profile}) {
 // DEBT TRACKER
 // ─────────────────────────────────────────────────────────────────────────────
 function DebtTracker({debts,setDebts}) {
+  const mob = useIsMobile();
   const [modal,setModal]=useState(false);
   const [editId,setEditId]=useState(null);
   const [form,setForm]=useState({name:"",type:"credit_card",balance:"",rate:"",minPayment:"",color:"#EF4444"});
@@ -843,7 +859,7 @@ function DebtTracker({debts,setDebts}) {
       {/* Debt breakdown chart */}
       {debts.length>0&&<div style={{...s.card,padding:22,marginBottom:16}}>
         <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:14}}>Debt Breakdown</div>
-        <ResponsiveContainer width="100%" height={180}>
+        <ResponsiveContainer width="100%" height={mob ? 150 : 180}>
           <BarChart data={chartData} layout="vertical" margin={{left:0}}>
             <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.border} horizontal={false}/>
             <XAxis type="number" tick={{fill:PALETTE.muted,fontSize:10}} tickLine={false} axisLine={false} tickFormatter={v=>`$${(v/1000).toFixed(0)}k`}/>
@@ -915,6 +931,7 @@ function DebtTracker({debts,setDebts}) {
 // ─────────────────────────────────────────────────────────────────────────────
 function Analytics({expenses,profile,debts}) {
   const [view,setView]=useState("monthly");
+  const mob = useIsMobile();
   const spent=expenses.reduce((s,e)=>s+e.amount,0);
   const catData=CAT_KEYS.map(c=>({name:c,icon:CATS[c].icon,color:CATS[c].color,spent:expenses.filter(e=>e.cat===c).reduce((s,e)=>s+e.amount,0),limit:profile.limits[c]||0})).filter(c=>c.spent>0);
   const months=["Oct","Nov","Dec","Jan","Feb","Mar"];
@@ -936,7 +953,7 @@ function Analytics({expenses,profile,debts}) {
       {/* Budget vs Actual */}
       <div style={{...s.card,padding:22,marginBottom:16}}>
         <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:14}}>Budget vs Actual — Last 6 Months</div>
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height={mob ? 170 : 220}>
           <BarChart data={histData} barGap={6}>
             <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.border}/>
             <XAxis dataKey="month" tick={{fill:PALETTE.muted,fontSize:11}} tickLine={false} axisLine={false}/>
@@ -953,7 +970,7 @@ function Analytics({expenses,profile,debts}) {
         {/* Category pie */}
         <div style={{...s.card,padding:22}}>
           <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:14}}>Category Breakdown</div>
-          <ResponsiveContainer width="100%" height={180}>
+          <ResponsiveContainer width="100%" height={mob ? 150 : 180}>
             <PieChart>
               <Pie data={catData.map(c=>({name:c.name,value:c.spent,color:c.color}))} cx="50%" cy="50%" outerRadius={80} paddingAngle={2} dataKey="value">
                 {catData.map((e,i)=><Cell key={i} fill={e.color}/>)}
@@ -1274,6 +1291,7 @@ const ESSENTIAL_CATS = ["Food","Rent","Transport","Utilities","Health"];
 const NON_ESSENTIAL_CATS = ["Entertainment","Shopping","Education","Other"];
 
 function CrisisMode({expenses,profile,debts,setPage}) {
+  const mob = useIsMobile();
   const [inflationRate,setInflationRate]=useState(8.0);
   const [months,setMonths]=useState(6);
   const [crisisActive,setCrisisActive]=useState(false);
@@ -1431,7 +1449,7 @@ function CrisisMode({expenses,profile,debts,setPage}) {
 
         <div style={{...s.card,padding:22}}>
           <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:14}}>US Inflation Trend (CPI)</div>
-          <ResponsiveContainer width="100%" height={200}>
+          <ResponsiveContainer width="100%" height={mob ? 160 : 200}>
             <AreaChart data={INFLATION_DATA}>
               <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.border}/>
               <XAxis dataKey="year" tick={{fill:PALETTE.muted,fontSize:11}} stroke={PALETTE.border}/>
@@ -1447,7 +1465,7 @@ function CrisisMode({expenses,profile,debts,setPage}) {
       <div style={{...s.card,padding:22,marginBottom:18}}>
         <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:4}}>Savings Burn-Down: How Long Can You Survive?</div>
         <div style={{fontSize:12,color:PALETTE.muted,marginBottom:14}}>Projecting savings depletion with and without inflation impact</div>
-        <ResponsiveContainer width="100%" height={220}>
+        <ResponsiveContainer width="100%" height={mob ? 170 : 220}>
           <AreaChart data={survivalData}>
             <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.border}/>
             <XAxis dataKey="month" tick={{fill:PALETTE.muted,fontSize:11}} stroke={PALETTE.border}/>
