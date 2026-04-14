@@ -662,7 +662,7 @@ function Expenses({expenses,setExpenses,profile}) {
 
   return(
     <div>
-      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:20,flexWrap:"wrap",gap:12}}>
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:mob?"flex-start":"center",marginBottom:20,flexWrap:"wrap",gap:10}}>
         <div>
           <div style={{fontSize:20,fontWeight:800,color:PALETTE.text}}>Expenses</div>
           <div style={{fontSize:13,color:PALETTE.muted,marginTop:3}}>{filtered.length} transactions · {fmt(total)}</div>
@@ -1554,10 +1554,9 @@ function CrisisMode({expenses,profile,debts,setPage}) {
 // NOTIFICATIONS CENTER
 // ─────────────────────────────────────────────────────────────────────────────
 function NotifCenter({expenses,profile,notifLog,setNotifLog,rules,setRules}) {
+  const mob = useIsMobile();
   const spent=expenses.reduce((s,e)=>s+e.amount,0);
   const p=pct(spent,profile.budget);
-  if (!onboarded) return <OnboardingWizard onComplete={handleOnboardingComplete}/>;
-
   const unread=notifLog.filter(n=>!n.read).length;
   const markAll=()=>setNotifLog(ns=>ns.map(n=>({...n,read:true})));
   const clear=()=>setNotifLog([]);
@@ -1578,7 +1577,7 @@ function NotifCenter({expenses,profile,notifLog,setNotifLog,rules,setRules}) {
           <div style={{fontSize:20,fontWeight:800,color:PALETTE.text}}>Notification Center</div>
           <div style={{fontSize:13,color:PALETTE.muted,marginTop:3}}>{notifLog.length} alerts · {unread} unread</div>
         </div>
-        <div style={{display:"flex",gap:8}}>
+        <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
           {unread>0&&<Btn variant="ghost" size="sm" onClick={markAll}>Mark all read</Btn>}
           {notifLog.length>0&&<Btn variant="danger" size="sm" onClick={clear}>Clear all</Btn>}
         </div>
@@ -1588,14 +1587,14 @@ function NotifCenter({expenses,profile,notifLog,setNotifLog,rules,setRules}) {
       <div style={{...s.card,padding:20,marginBottom:16}}>
         <div style={{fontWeight:700,color:PALETTE.text,fontSize:14,marginBottom:12}}>Current Budget Status</div>
         <ProgBar value={spent} max={profile.budget} h={10} label="Overall" subLabel={`${fmt(spent)} of ${fmt(profile.budget)} (${p}%)`}/>
-        <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(140px,1fr))",gap:10,marginTop:14}}>
+        <div style={{display:"grid",gridTemplateColumns:mob?"repeat(2,1fr)":"repeat(auto-fill,minmax(140px,1fr))",gap:mob?8:10,marginTop:14}}>
           {CAT_KEYS.map(cat=>{
             const cs=expenses.filter(e=>e.cat===cat).reduce((s,e)=>s+e.amount,0);
             const cl=profile.limits[cat]||0;
             if(!cs&&!cl)return null;
             const cp=cl>0?pct(cs,cl):0;
             return(
-              <div key={cat} style={{background:"rgba(255,255,255,0.03)",borderRadius:9,padding:"10px 12px",border:`1px solid ${cp>=100?PALETTE.warning+"44":PALETTE.border}`}}>
+              <div key={cat} style={{background:"rgba(255,255,255,0.03)",borderRadius:9,padding:mob?"8px 10px":"10px 12px",border:`1px solid ${cp>=100?PALETTE.warning+"44":PALETTE.border}`}}>
                 <div style={{display:"flex",justifyContent:"space-between",marginBottom:5}}>
                   <span style={{fontSize:11,color:PALETTE.muted}}>{CATS[cat].icon} {cat}</span>
                   <span style={{fontSize:10,fontWeight:700,color:cp>=100?PALETTE.warning:cp>=80?PALETTE.amber:PALETTE.muted}}>{cp}%</span>
@@ -1616,11 +1615,11 @@ function NotifCenter({expenses,profile,notifLog,setNotifLog,rules,setRules}) {
             <div key={r.k} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",background:"rgba(255,255,255,0.03)",borderRadius:10,border:`1px solid ${PALETTE.border}`,flexWrap:"wrap",gap:10}}>
               <div style={{display:"flex",alignItems:"center",gap:10}}>
                 <div>
-                  <div style={{fontSize:13,fontWeight:600,color:PALETTE.text}}>{r.l}</div>
-                  <div style={{fontSize:11,color:PALETTE.muted,marginTop:2}}>{r.d}</div>
+                  <div style={{fontSize:mob?12:13,fontWeight:600,color:PALETTE.text}}>{r.l}</div>
+                  <div style={{fontSize:mob?10:11,color:PALETTE.muted,marginTop:2,lineHeight:1.4}}>{r.d}</div>
                 </div>
               </div>
-              <div style={{display:"flex",alignItems:"center",gap:10}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,flexShrink:0,marginLeft:mob?"auto":0}}>
                 <Chip color={SEV_COL[r.sev]}>{r.sev}</Chip>
                 <label style={{position:"relative",display:"inline-flex",alignItems:"center",cursor:"pointer"}}>
                   <input type="checkbox" checked={rules[r.k]!==false} onChange={e=>setRules(x=>({...x,[r.k]:e.target.checked}))} style={{opacity:0,width:0,height:0,position:"absolute"}}/>
@@ -1653,7 +1652,7 @@ function NotifCenter({expenses,profile,notifLog,setNotifLog,rules,setRules}) {
               <div key={n.id} onClick={()=>setNotifLog(ns=>ns.map(x=>x.id===n.id?{...x,read:true}:x))} style={{display:"flex",gap:12,padding:"13px 18px",borderBottom:`1px solid ${PALETTE.border}`,background:n.read?"transparent":"rgba(99,102,241,0.04)",cursor:"pointer",transition:"background 0.15s"}}>
                 <div style={{width:32,height:32,borderRadius:9,background:col+"15",display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,flexShrink:0}}>{n.type==="error"?"🚨":n.type==="warn"?"⚠️":"💡"}</div>
                 <div style={{flex:1,minWidth:0}}>
-                  <div style={{display:"flex",alignItems:"center",gap:7,marginBottom:3,flexWrap:"wrap"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:3,flexWrap:"wrap"}}>
                     <span style={{fontSize:13,fontWeight:n.read?500:700,color:PALETTE.text}}>{n.title}</span>
                     {!n.read&&<div style={{width:6,height:6,borderRadius:"50%",background:PALETTE.primary,flexShrink:0}}/>}
                   </div>
@@ -2101,8 +2100,6 @@ function AppShell({session, onLogout}) {
       if(lx?.amount>=200)fire(`lg_${lx.id}`,"💸 Large Expense",`${lx.note||lx.cat}: ${fmt(lx.amount)} logged.`,"warn");
     }
   },[expenses,profile,rules,pushToast]);
-
-  if (!onboarded) return <OnboardingWizard onComplete={handleOnboardingComplete}/>;
 
   const unread=notifLog.filter(n=>!n.read).length;
   const mob=w<768;
