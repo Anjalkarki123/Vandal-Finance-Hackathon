@@ -1968,8 +1968,12 @@ function AuthScreen({onLogin}) {
     if (!users[resetEmail])        { setErr("No account found with this email address."); return; }
     users[resetEmail].password = btoa(newPass + "bg_2025");
     LS.set("bg_users", users);
+    // Show success briefly, then auto-login
     setResetDone(true);
-    setErr("");
+    setTimeout(() => {
+      localStorage.setItem("bg_session", resetEmail);
+      onLogin({ email: resetEmail, name: users[resetEmail].name });
+    }, 1800);
   };
 
   const pwStrength = (p) => {
@@ -2050,11 +2054,18 @@ function AuthScreen({onLogin}) {
                 <Btn full onClick={submitReset}>Reset Password</Btn>
               </>
             ) : (
-              <div style={{textAlign:"center",padding:"10px 0",animation:"fadeUp 0.3s ease"}}>
-                <div style={{fontSize:56,marginBottom:16}}>✅</div>
-                <div style={{fontSize:20,fontWeight:900,color:PALETTE.text,marginBottom:8}}>Password Updated!</div>
-                <div style={{fontSize:13,color:PALETTE.muted,lineHeight:1.7,marginBottom:28}}>Your password has been reset successfully.<br/>You can now sign in with your new password.</div>
-                <Btn full onClick={goSignIn}>Go to Sign In →</Btn>
+              <div style={{textAlign:"center",padding:"20px 0",animation:"fadeUp 0.3s ease"}}>
+                <div style={{fontSize:60,marginBottom:16,animation:"pulse 1.2s infinite"}}>✅</div>
+                <div style={{fontSize:20,fontWeight:900,color:PALETTE.text,marginBottom:8}}>Password Reset!</div>
+                <div style={{fontSize:13,color:PALETTE.muted,lineHeight:1.7,marginBottom:24}}>
+                  Your password has been updated.<br/>Logging you in automatically…
+                </div>
+                {/* Auto-login progress bar */}
+                <div style={{background:"rgba(255,255,255,0.07)",borderRadius:99,height:4,overflow:"hidden",marginBottom:20}}>
+                  <div style={{height:"100%",background:`linear-gradient(90deg,${PALETTE.primary},${PALETTE.primaryLight})`,borderRadius:99,animation:"autoLoginBar 1.8s linear forwards"}}/>
+                </div>
+                <style>{`@keyframes autoLoginBar{from{width:0%}to{width:100%}}@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}`}</style>
+                <div style={{fontSize:12,color:PALETTE.dim}}>Taking you to your dashboard…</div>
               </div>
             )}
           </div>
