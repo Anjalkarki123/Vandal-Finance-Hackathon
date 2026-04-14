@@ -2125,12 +2125,20 @@ function AppShell({session, onLogout}) {
     {id:"notifs",   icon:"🔔",label:"Alerts",badge:unread},
     {id:"settings", icon:"⚙️",label:"Settings"},
   ];
+  const [mobMore, setMobMore] = useState(false);
   const MOB_TABS=[
     {id:"dashboard",icon:"📊",label:"Home"},
     {id:"expenses", icon:"💸",label:"Expenses"},
-    {id:"debts",    icon:"💳",label:"Debts"},
+    {id:"crisis",   icon:"🛡️",label:"Crisis"},
     {id:"notifs",   icon:"🔔",label:"Alerts",badge:unread},
-    {id:"settings", icon:"⚙️",label:"More"},
+    {id:"more",     icon:"☰", label:"More"},
+  ];
+  const MOB_MORE_PAGES=[
+    {id:"debts",    icon:"💳",label:"Debt Tracker"},
+    {id:"analytics",icon:"📈",label:"Analytics"},
+    {id:"notes",    icon:"📝",label:"Notes"},
+    {id:"ai",       icon:"✨",label:"AI Insights"},
+    {id:"settings", icon:"⚙️",label:"Settings"},
   ];
 
   const renderPage=()=>{
@@ -2171,7 +2179,10 @@ function AppShell({session, onLogout}) {
         input:focus,select:focus,textarea:focus{border-color:${PALETTE.primary}!important;outline:none}
         @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
         @keyframes slideIn{from{transform:translateX(20px);opacity:0}to{transform:translateX(0);opacity:1}}
-        button:active{opacity:0.85}
+        @keyframes pageIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        @keyframes sheetUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+        button:active{opacity:0.82}
+        @media(max-width:767px){input,select,textarea{font-size:16px!important}button{-webkit-tap-highlight-color:transparent}}
       `}</style>
 
       <Toast toasts={toasts} dismiss={dismissToast}/>
@@ -2219,10 +2230,10 @@ function AppShell({session, onLogout}) {
       {/* Main */}
       <main style={{flex:1,marginLeft:mob?0:218,minHeight:"100vh",paddingBottom:mob?74:0,overflowX:"hidden"}}>
         {/* Top bar */}
-        <div style={{padding:mob?"12px 14px":"11px 22px",background:PALETTE.surface,borderBottom:`1px solid ${PALETTE.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:99}}>
+        <div style={{padding:mob?"12px 16px":"11px 22px",background:PALETTE.surface,borderBottom:`1px solid ${PALETTE.border}`,display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:99}}>
           <div style={{display:"flex",alignItems:"center",gap:10}}>
-            {mob&&<button onClick={()=>setSideOpen(true)} style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${PALETTE.border}`,borderRadius:8,padding:"7px 13px",color:PALETTE.muted,cursor:"pointer",fontSize:13,fontFamily:"inherit",fontWeight:600}}>☰</button>}
-            <span style={{fontSize:15,fontWeight:800,color:PALETTE.text}}>{NAV.find(n=>n.id===page)?.label||"Budget Guardian"}</span>
+            {mob&&<div style={{width:28,height:28,borderRadius:8,background:`linear-gradient(135deg,${PALETTE.primary},${PALETTE.primaryLight})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>🛡️</div>}
+            <span style={{fontSize:mob?16:15,fontWeight:800,color:PALETTE.text}}>{NAV.find(n=>n.id===page)?.label||"Budget Guardian"}</span>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <button onClick={()=>setPage("notifs")} style={{position:"relative",background:"rgba(255,255,255,0.06)",border:`1px solid ${PALETTE.border}`,borderRadius:9,width:34,height:34,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16}}>
@@ -2232,28 +2243,50 @@ function AppShell({session, onLogout}) {
           </div>
         </div>
 
-        <div style={{padding:mob?"14px 12px":"24px",maxWidth:1120,margin:"0 auto"}}>
+        <div key={page} style={{padding:mob?"12px 12px":"24px",maxWidth:1120,margin:"0 auto",animation:mob?"pageIn 0.2s ease":"none"}}>
           {renderPage()}
         </div>
       </main>
 
-      {/* Mobile bottom nav */}
       {mob&&(
-        <nav style={{position:"fixed",bottom:0,left:0,right:0,background:PALETTE.surface,borderTop:`1px solid ${PALETTE.border}`,display:"flex",zIndex:150,paddingBottom:"env(safe-area-inset-bottom,0)"}}>
-          {MOB_TABS.map(n=>{
-            const active=page===n.id;
-            return(
-              <button key={n.id} onClick={()=>{setPage(n.id);setSideOpen(false);}} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"8px 4px 10px",border:"none",background:"none",cursor:"pointer",position:"relative",gap:2,fontFamily:"inherit"}}>
-                {active&&<div style={{position:"absolute",top:0,left:"20%",right:"20%",height:2,background:PALETTE.primary,borderRadius:"0 0 2px 2px"}}/>}
-                <div style={{position:"relative"}}>
-                  <span style={{fontSize:22,opacity:active?1:0.4,transition:"opacity 0.15s"}}>{n.icon}</span>
-                  {n.badge>0&&<span style={{position:"absolute",top:-4,right:-6,background:PALETTE.warning,color:"#fff",borderRadius:99,minWidth:15,height:15,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:900}}>{n.badge}</span>}
-                </div>
-                <span style={{fontSize:10,fontWeight:active?700:500,color:active?PALETTE.primary:PALETTE.dim}}>{n.label}</span>
-              </button>
-            );
-          })}
-        </nav>
+        <>
+          {mobMore&&(
+            <>
+              <div onClick={()=>setMobMore(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.55)",zIndex:300,backdropFilter:"blur(3px)"}}/>
+              <div style={{position:"fixed",bottom:0,left:0,right:0,background:PALETTE.surface,borderRadius:"22px 22px 0 0",border:`1px solid ${PALETTE.border}`,zIndex:400,paddingBottom:"calc(env(safe-area-inset-bottom,0px) + 72px)",animation:"sheetUp 0.28s cubic-bezier(0.34,1.56,0.64,1)"}}>
+                <div style={{width:38,height:4,borderRadius:99,background:PALETTE.dim,margin:"14px auto 10px"}}/>
+                <div style={{padding:"4px 20px 8px",fontSize:11,fontWeight:800,color:PALETTE.muted,textTransform:"uppercase",letterSpacing:"0.08em"}}>More Features</div>
+                {MOB_MORE_PAGES.map(n=>(
+                  <button key={n.id} onClick={()=>{setPage(n.id);setMobMore(false);}} style={{width:"100%",display:"flex",alignItems:"center",gap:16,padding:"15px 22px",border:"none",borderTop:`1px solid ${PALETTE.border}`,background:page===n.id?`${PALETTE.primary}10`:"none",color:page===n.id?PALETTE.primary:PALETTE.text,cursor:"pointer",fontFamily:"inherit",fontSize:15,fontWeight:page===n.id?700:500}}>
+                    <span style={{fontSize:22,width:28,textAlign:"center"}}>{n.icon}</span>
+                    <span style={{flex:1}}>{n.label}</span>
+                    {page===n.id&&<span style={{color:PALETTE.primary,fontSize:16}}>&#10003;</span>}
+                  </button>
+                ))}
+                <button onClick={()=>{onLogout();setMobMore(false);}} style={{width:"100%",display:"flex",alignItems:"center",gap:16,padding:"15px 22px",border:"none",borderTop:`1px solid ${PALETTE.border}`,background:"none",color:"#EF4444",cursor:"pointer",fontFamily:"inherit",fontSize:15,fontWeight:600}}>
+                  <span style={{fontSize:22,width:28,textAlign:"center"}}>&#x23FB;</span>
+                  Sign Out
+                </button>
+              </div>
+            </>
+          )}
+          <nav style={{position:"fixed",bottom:0,left:0,right:0,background:PALETTE.surface,borderTop:`1px solid ${PALETTE.border}`,display:"flex",zIndex:150,paddingBottom:"env(safe-area-inset-bottom,0px)"}}>
+            {MOB_TABS.map(n=>{
+              const isMore=n.id==="more";
+              const active=isMore?mobMore:(page===n.id&&!mobMore);
+              return(
+                <button key={n.id} onClick={()=>{if(isMore){setMobMore(v=>!v);}else{setPage(n.id);setMobMore(false);setSideOpen(false);}}} style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"8px 2px 10px",border:"none",background:"none",cursor:"pointer",position:"relative",gap:3,fontFamily:"inherit",minHeight:56}}>
+                  {active&&<div style={{position:"absolute",top:0,left:"15%",right:"15%",height:2.5,background:PALETTE.primary,borderRadius:"0 0 3px 3px"}}/>}
+                  <div style={{position:"relative",width:30,height:30,display:"flex",alignItems:"center",justifyContent:"center",borderRadius:10,background:active?`${PALETTE.primary}20`:"transparent",transition:"background 0.15s"}}>
+                    <span style={{fontSize:20,opacity:active?1:0.4,transition:"opacity 0.15s"}}>{n.icon}</span>
+                    {n.badge>0&&<span style={{position:"absolute",top:-4,right:-6,background:PALETTE.warning,color:"#fff",borderRadius:99,minWidth:14,height:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,fontWeight:900,border:`2px solid ${PALETTE.surface}`}}>{n.badge>9?"9+":n.badge}</span>}
+                  </div>
+                  <span style={{fontSize:10,fontWeight:active?800:500,color:active?PALETTE.primary:PALETTE.dim}}>{n.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </>
       )}
     </div>
   );
