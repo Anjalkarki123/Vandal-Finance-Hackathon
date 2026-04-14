@@ -1097,7 +1097,7 @@ function Notes({notes,setNotes}) {
 // ─────────────────────────────────────────────────────────────────────────────
 // SETTINGS / PROFILE
 // ─────────────────────────────────────────────────────────────────────────────
-function Settings({profile,setProfile,pushToast}) {
+function Settings({profile,setProfile,pushToast,onLogout,session}) {
   const [form,setForm]=useState(profile);
   const up=k=>e=>setForm(f=>({...f,[k]:e.target.type==="number"?Number(e.target.value):e.target.value}));
   const upLim=k=>e=>setForm(f=>({...f,limits:{...f.limits,[k]:Number(e.target.value)}}));
@@ -1114,6 +1114,12 @@ function Settings({profile,setProfile,pushToast}) {
           <div style={{marginBottom:14}}><label style={s.lbl}>Current Savings ($)</label><input type="number" value={form.savings} onChange={up("savings")} style={s.inp}/></div>
           <div style={{marginBottom:20}}><label style={s.lbl}>Monthly Budget Limit ($)</label><input type="number" value={form.budget} onChange={up("budget")} style={s.inp}/></div>
           <Btn full onClick={save}>Save Profile</Btn>
+          {session&&(
+            <div style={{marginTop:20,paddingTop:18,borderTop:`1px solid ${PALETTE.border}`}}>
+              <div style={{fontSize:12,color:PALETTE.muted,marginBottom:10}}>Signed in as: <span style={{color:PALETTE.text,fontWeight:600}}>{session}</span></div>
+              <Btn full variant="danger" onClick={onLogout}>Sign Out</Btn>
+            </div>
+          )}
         </div>
         <div style={{...s.card,padding:22}}>
           <div style={{fontWeight:700,color:PALETTE.text,fontSize:15,marginBottom:18}}>Category Limits</div>
@@ -1908,20 +1914,129 @@ function OnboardingWizard({ onComplete }) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// AUTH SCREEN
+// ─────────────────────────────────────────────────────────────────────────────
+function AuthScreen({onLogin}) {
+  const [tab,    setTab]    = useState("signin");
+  const [name,   setName]   = useState("");
+  const [email,  setEmail]  = useState("");
+  const [pass,   setPass]   = useState("");
+  const [showPw, setShowPw] = useState(false);
+  const [err,    setErr]    = useState("");
+
+  const validate = () => {
+    if (tab === "signup" && !name.trim()) { setErr("Full name is required."); return false; }
+    if (!email.includes("@"))            { setErr("Enter a valid email address."); return false; }
+    if (pass.length < 6)                 { setErr("Password must be at least 6 characters."); return false; }
+    return true;
+  };
+
+  const submit = () => {
+    setErr("");
+    if (!validate()) return;
+    const users = LS.get("bg_users", {});
+    if (tab === "signup") {
+      if (users[email]) { setErr("An account with this email already exists."); return; }
+      users[email] = { name: name.trim(), email, password: btoa(pass + "bg_2025") };
+      LS.set("bg_users", users);
+      localStorage.setItem("bg_session", email);
+      onLogin({ email, name: name.trim() });
+    } else {
+      const u = users[email];
+      if (!u) { setErr("No account found with this email."); return; }
+      if (u.password !== btoa(pass + "bg_2025")) { setErr("Incorrect password."); return; }
+      localStorage.setItem("bg_session", email);
+      onLogin({ email, name: u.name });
+    }
+  };
+
+  const inp = { ...s.inp };
+
+  return (
+    <div style={{minHeight:"100vh",background:PALETTE.bg,display:"flex",alignItems:"center",justifyContent:"center",padding:20,fontFamily:"'DM Sans','Segoe UI',system-ui,sans-serif"}}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800;900&display=swap');
+        *{margin:0;padding:0;box-sizing:border-box}
+        input::placeholder{color:${PALETTE.dim}}
+        input:focus{border-color:${PALETTE.primary}!important;outline:none}
+      `}</style>
+      <div style={{width:"100%",maxWidth:420}}>
+        {/* Logo */}
+        <div style={{textAlign:"center",marginBottom:32}}>
+          <div style={{width:52,height:52,borderRadius:14,background:`linear-gradient(135deg,${PALETTE.primary},${PALETTE.primaryLight})`,display:"flex",alignItems:"center",justifyContent:"center",fontSize:26,margin:"0 auto 12px"}}>🛡️</div>
+          <div style={{fontSize:22,fontWeight:900,color:PALETTE.text}}>Budget Guardian</div>
+          <div style={{fontSize:13,color:PALETTE.muted,marginTop:4}}>Your financial command center</div>
+        </div>
+
+        {/* Card */}
+        <div style={{...s.card,padding:"30px 28px"}}>
+          {/* Tabs */}
+          <div style={{display:"flex",gap:4,background:"rgba(255,255,255,0.04)",borderRadius:10,padding:4,marginBottom:26}}>
+            {["signin","signup"].map(t=>(
+              <button key={t} onClick={()=>{setTab(t);setErr("");}} style={{flex:1,padding:"8px 0",borderRadius:8,border:"none",background:tab===t?PALETTE.card:"transparent",color:tab===t?PALETTE.text:PALETTE.muted,fontWeight:tab===t?700:500,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                {t==="signin"?"Sign In":"Create Account"}
+              </button>
+            ))}
+          </div>
+
+          {/* Fields */}
+          {tab==="signup"&&(
+            <div style={{marginBottom:14}}>
+              <label style={s.lbl}>Full Name</label>
+              <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Jordan Rivera" style={inp}/>
+            </div>
+          )}
+          <div style={{marginBottom:14}}>
+            <label style={s.lbl}>Email</label>
+            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" style={inp}/>
+          </div>
+          <div style={{marginBottom:20}}>
+            <label style={s.lbl}>Password</label>
+            <div style={{position:"relative"}}>
+              <input type={showPw?"text":"password"} value={pass} onChange={e=>setPass(e.target.value)} placeholder="Min 6 characters" style={{...inp,paddingRight:42}} onKeyDown={e=>e.key==="Enter"&&submit()}/>
+              <button onClick={()=>setShowPw(v=>!v)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:PALETTE.muted,cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>
+                {showPw?"🙈":"👁"}
+              </button>
+            </div>
+          </div>
+
+          {/* Error */}
+          {err&&<div style={{color:"#EF4444",fontSize:13,marginBottom:14,padding:"9px 12px",background:"rgba(239,68,68,0.1)",borderRadius:8,border:"1px solid rgba(239,68,68,0.25)"}}>{err}</div>}
+
+          <Btn full onClick={submit}>{tab==="signin"?"Sign In":"Create Account"}</Btn>
+        </div>
+        <p style={{textAlign:"center",color:PALETTE.dim,fontSize:11,marginTop:18}}>Data stored locally on your device</p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // MAIN APP
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
-  // Force fresh demo data for presentation
-  if(LS.get("bg_version","")!=="v2"){["bg_exp","bg_prof","bg_dbt","bg_nts","bg_goals","bg_nlog","bg_rules","bg_onboarded"].forEach(k=>localStorage.removeItem(k));LS.set("bg_version","v2");}
-  const [onboarded,  setOnboarded]  = useState(()=>LS.get("bg_onboarded", false));
+  const [session, setSession] = useState(() => localStorage.getItem("bg_session") || "");
+
+  const handleLogin  = ({email}) => setSession(email);
+  const handleLogout = () => { localStorage.removeItem("bg_session"); setSession(""); };
+
+  if (!session) return <AuthScreen onLogin={handleLogin}/>;
+  return <AppShell session={session} onLogout={handleLogout}/>;
+}
+
+function AppShell({session, onLogout}) {
+  const uk = (k) => session + "_" + k;
+  // Force fresh demo data for presentation (per-user versioning)
+  if(LS.get(uk("bg_version"),"")!=="v2"){[uk("bg_exp"),uk("bg_prof"),uk("bg_dbt"),uk("bg_nts"),uk("bg_goals"),uk("bg_nlog"),uk("bg_rules"),uk("bg_onboarded")].forEach(k=>localStorage.removeItem(k));LS.set(uk("bg_version"),"v2");}
+  const [onboarded,  setOnboarded]  = useState(()=>LS.get(uk("bg_onboarded"), false));
   const [page,       setPage]       = useState("dashboard");
-  const [expenses,   setExpenses]   = useState(()=>LS.get("bg_exp",  SEED_EXP));
-  const [profile,    setProfile]    = useState(()=>LS.get("bg_prof", SEED_PROFILE));
-  const [debts,      setDebts]      = useState(()=>LS.get("bg_dbt",  SEED_DEBTS));
-  const [goals,      setGoals]      = useState(()=>LS.get("bg_goals", []));
-  const [notes,      setNotes]      = useState(()=>LS.get("bg_nts",  SEED_NOTES));
-  const [notifLog,   setNotifLog]   = useState(()=>LS.get("bg_nlog", []));
-  const [rules,      setRules]      = useState(()=>LS.get("bg_rules",{overallExc:true,at85:true,at70:false,catExc:true,catAt80:true,largeTxn:true}));
+  const [expenses,   setExpenses]   = useState(()=>LS.get(uk("bg_exp"),  SEED_EXP));
+  const [profile,    setProfile]    = useState(()=>LS.get(uk("bg_prof"), SEED_PROFILE));
+  const [debts,      setDebts]      = useState(()=>LS.get(uk("bg_dbt"),  SEED_DEBTS));
+  const [goals,      setGoals]      = useState(()=>LS.get(uk("bg_goals"), []));
+  const [notes,      setNotes]      = useState(()=>LS.get(uk("bg_nts"),  SEED_NOTES));
+  const [notifLog,   setNotifLog]   = useState(()=>LS.get(uk("bg_nlog"), []));
+  const [rules,      setRules]      = useState(()=>LS.get(uk("bg_rules"),{overallExc:true,at85:true,at70:false,catExc:true,catAt80:true,largeTxn:true}));
   const [toasts,     setToasts]     = useState([]);
   const [sideOpen,   setSideOpen]   = useState(false);
   const [w,          setW]          = useState(window.innerWidth);
@@ -1930,24 +2045,24 @@ export default function App() {
 
   useEffect(()=>{const h=()=>setW(window.innerWidth);window.addEventListener("resize",h);return()=>window.removeEventListener("resize",h);},[]);
 
-  // Persist to localStorage
-  useEffect(()=>LS.set("bg_exp",  expenses),  [expenses]);
-  useEffect(()=>LS.set("bg_prof", profile),   [profile]);
-  useEffect(()=>LS.set("bg_dbt",  debts),     [debts]);
-  useEffect(()=>LS.set("bg_goals", goals),     [goals]);
-  useEffect(()=>LS.set("bg_nts",  notes),     [notes]);
-  useEffect(()=>LS.set("bg_nlog", notifLog),  [notifLog]);
-  useEffect(()=>LS.set("bg_rules",rules),     [rules]);
+  // Persist to localStorage (per-user keys)
+  useEffect(()=>LS.set(uk("bg_exp"),  expenses),  [expenses]);
+  useEffect(()=>LS.set(uk("bg_prof"), profile),   [profile]);
+  useEffect(()=>LS.set(uk("bg_dbt"),  debts),     [debts]);
+  useEffect(()=>LS.set(uk("bg_goals"), goals),    [goals]);
+  useEffect(()=>LS.set(uk("bg_nts"),  notes),     [notes]);
+  useEffect(()=>LS.set(uk("bg_nlog"), notifLog),  [notifLog]);
+  useEffect(()=>LS.set(uk("bg_rules"),rules),     [rules]);
 
   const handleOnboardingComplete = ({profile: p, goal, expense}) => {
     setProfile(p);
     if (goal.length) setGoals(goal);
     if (expense.length) setExpenses(expense);
-    LS.set("bg_onboarded", true);
+    LS.set(uk("bg_onboarded"), true);
     setOnboarded(true);
   };
   const resetOnboarding = () => {
-    LS.set("bg_onboarded", false);
+    LS.set(uk("bg_onboarded"), false);
     setOnboarded(false);
   };
 
@@ -2021,7 +2136,7 @@ export default function App() {
       case "notes":     return <Notes     notes={notes} setNotes={setNotes}/>;
       case "ai":        return <AIInsights expenses={expenses} profile={profile} debts={debts}/>;
       case "notifs":    return <NotifCenter expenses={expenses} profile={profile} notifLog={notifLog} setNotifLog={setNotifLog} rules={rules} setRules={setRules}/>;
-      case "settings":  return <Settings  profile={profile} setProfile={setProfile} pushToast={pushToast}/>;
+      case "settings":  return <Settings  profile={profile} setProfile={setProfile} pushToast={pushToast} onLogout={onLogout} session={session}/>;
       default:          return null;
     }
   };
@@ -2065,13 +2180,14 @@ export default function App() {
           </div>
           <nav style={{flex:1,padding:"10px 8px",overflowY:"auto"}}>{NAV.map(sideBtn)}</nav>
           <div style={{padding:"10px 12px 16px",borderTop:`1px solid ${PALETTE.border}`}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
               <div>
                 <div style={{fontSize:12,fontWeight:700,color:PALETTE.text}}>{profile.name}</div>
                 <div style={{fontSize:10,color:PALETTE.dim,marginTop:2}}>Income: {fmt(profile.income)}/mo</div>
               </div>
               <button onClick={resetOnboarding} title="Restart onboarding" style={{background:"rgba(255,255,255,0.06)",border:`1px solid ${PALETTE.border}`,borderRadius:7,width:26,height:26,color:PALETTE.muted,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>↺</button>
             </div>
+            <button onClick={onLogout} style={{width:"100%",padding:"7px 0",background:"rgba(239,68,68,0.12)",border:"1px solid rgba(239,68,68,0.3)",borderRadius:8,color:"#EF4444",fontSize:12,fontWeight:700,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>Sign Out</button>
           </div>
         </aside>
       )}
