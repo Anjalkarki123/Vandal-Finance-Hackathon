@@ -632,6 +632,7 @@ function Dashboard({expenses,profile,debts,setPage}) {
 // EXPENSES
 // ─────────────────────────────────────────────────────────────────────────────
 function Expenses({expenses,setExpenses,profile}) {
+  const mob = useIsMobile();
   const [modal,setModal]=useState(false);
   const [editId,setEditId]=useState(null);
   const [form,setForm]=useState({date:today(),cat:"Food",amount:"",note:""});
