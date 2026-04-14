@@ -1676,7 +1676,7 @@ function NotifCenter({expenses,profile,notifLog,setNotifLog,rules,setRules}) {
 const GOAL_ICONS = ["🛡️","✈️","🏠","🚗","💻","📚","💍","🏋️","🎸","🌱","🏖️","💊"];
 const GOAL_COLORS = ["#22C55E","#06B6D4","#4F46E5","#F59E0B","#EC4899","#7C3AED"];
 
-function OnboardingWizard({ onComplete }) {
+function OnboardingWizard({ onComplete, userName="" }) {
   const [step, setStep] = useState(0);
   const [d, setD] = useState({
     name:"", income:"", savings:"", budget:"",
@@ -2031,20 +2031,21 @@ export default function App() {
   const handleLogout = () => { localStorage.removeItem("bg_session"); setSession(""); };
 
   if (!session) return <AuthScreen onLogin={handleLogin}/>;
-  return <AppShell session={session} onLogout={handleLogout}/>;
+  const userName = (JSON.parse(localStorage.getItem("bg_users")||"{}")?.[session]?.name)||"there";
+  return <AppShell session={session} onLogout={handleLogout} userName={userName}/>;
 }
 
-function AppShell({session, onLogout}) {
+function AppShell({session, onLogout, userName}) {
   const uk = (k) => session + "_" + k;
   // Force fresh demo data for presentation (per-user versioning)
-  if(LS.get(uk("bg_version"),"")!=="v2"){[uk("bg_exp"),uk("bg_prof"),uk("bg_dbt"),uk("bg_nts"),uk("bg_goals"),uk("bg_nlog"),uk("bg_rules"),uk("bg_onboarded")].forEach(k=>localStorage.removeItem(k));LS.set(uk("bg_version"),"v2");}
+  // Per-user data - starts empty for new users
   const [onboarded,  setOnboarded]  = useState(()=>LS.get(uk("bg_onboarded"), false));
   const [page,       setPage]       = useState("dashboard");
-  const [expenses,   setExpenses]   = useState(()=>LS.get(uk("bg_exp"),  SEED_EXP));
-  const [profile,    setProfile]    = useState(()=>LS.get(uk("bg_prof"), SEED_PROFILE));
-  const [debts,      setDebts]      = useState(()=>LS.get(uk("bg_dbt"),  SEED_DEBTS));
+  const [expenses,   setExpenses]   = useState(()=>LS.get(uk("bg_exp"),  []));
+  const [profile,    setProfile]    = useState(()=>LS.get(uk("bg_prof"), {name:"",income:0,savings:0,budget:0,limits:{Food:0,Rent:0,Transport:0,Entertainment:0,Health:0,Shopping:0,Utilities:0,Education:0,Savings:0,Other:0}}));
+  const [debts,      setDebts]      = useState(()=>LS.get(uk("bg_dbt"),  []));
   const [goals,      setGoals]      = useState(()=>LS.get(uk("bg_goals"), []));
-  const [notes,      setNotes]      = useState(()=>LS.get(uk("bg_nts"),  SEED_NOTES));
+  const [notes,      setNotes]      = useState(()=>LS.get(uk("bg_nts"),  []));
   const [notifLog,   setNotifLog]   = useState(()=>LS.get(uk("bg_nlog"), []));
   const [rules,      setRules]      = useState(()=>LS.get(uk("bg_rules"),{overallExc:true,at85:true,at70:false,catExc:true,catAt80:true,largeTxn:true}));
   const [toasts,     setToasts]     = useState([]);
@@ -2111,6 +2112,8 @@ function AppShell({session, onLogout}) {
       if(lx?.amount>=200)fire(`lg_${lx.id}`,"💸 Large Expense",`${lx.note||lx.cat}: ${fmt(lx.amount)} logged.`,"warn");
     }
   },[expenses,profile,rules,pushToast]);
+
+  if (!onboarded) return <OnboardingWizard onComplete={handleOnboardingComplete} userName={userName}/>;
 
   const unread=notifLog.filter(n=>!n.read).length;
   const mob=w<768;
