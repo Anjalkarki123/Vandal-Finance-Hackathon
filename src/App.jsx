@@ -1917,12 +1917,21 @@ function OnboardingWizard({ onComplete, userName="" }) {
 // AUTH SCREEN
 // ─────────────────────────────────────────────────────────────────────────────
 function AuthScreen({onLogin}) {
-  const [tab,    setTab]    = useState("signin");
-  const [name,   setName]   = useState("");
-  const [email,  setEmail]  = useState("");
-  const [pass,   setPass]   = useState("");
-  const [showPw, setShowPw] = useState(false);
-  const [err,    setErr]    = useState("");
+  const [tab,         setTab]        = useState("signin"); // "signin" | "signup" | "reset"
+  const [name,        setName]       = useState("");
+  const [email,       setEmail]      = useState("");
+  const [pass,        setPass]       = useState("");
+  const [showPw,      setShowPw]     = useState(false);
+  const [err,         setErr]        = useState("");
+  const [resetEmail,  setResetEmail] = useState("");
+  const [newPass,     setNewPass]    = useState("");
+  const [confirmPass, setConfirmPass]= useState("");
+  const [showNewPw,   setShowNewPw]  = useState(false);
+  const [showConfPw,  setShowConfPw] = useState(false);
+  const [resetDone,   setResetDone]  = useState(false);
+
+  const goReset  = () => { setErr(""); setResetEmail(email); setNewPass(""); setConfirmPass(""); setResetDone(false); setTab("reset"); };
+  const goSignIn = () => { setErr(""); setTab("signin"); };
 
   const validate = () => {
     if (tab === "signup" && !name.trim()) { setErr("Full name is required."); return false; }
@@ -1950,6 +1959,32 @@ function AuthScreen({onLogin}) {
     }
   };
 
+  const submitReset = () => {
+    setErr("");
+    if (!resetEmail.includes("@")) { setErr("Enter a valid email address."); return; }
+    if (newPass.length < 6)        { setErr("New password must be at least 6 characters."); return; }
+    if (newPass !== confirmPass)   { setErr("Passwords do not match — please re-enter."); return; }
+    const users = LS.get("bg_users", {});
+    if (!users[resetEmail])        { setErr("No account found with this email address."); return; }
+    users[resetEmail].password = btoa(newPass + "bg_2025");
+    LS.set("bg_users", users);
+    setResetDone(true);
+    setErr("");
+  };
+
+  const pwStrength = (p) => {
+    if (!p) return 0;
+    let score = 0;
+    if (p.length >= 6)  score++;
+    if (p.length >= 8)  score++;
+    if (/[A-Z]/.test(p)) score++;
+    if (/[0-9!@#$%^&*]/.test(p)) score++;
+    return score; // 0-4
+  };
+  const strength = pwStrength(newPass);
+  const strengthLabel = ["","Weak","Fair","Good","Strong 💪"][strength] || "";
+  const strengthColor = [PALETTE.dim, PALETTE.warning, PALETTE.amber, PALETTE.accent, PALETTE.accent][strength];
+
   const inp = { ...s.inp };
 
   return (
@@ -1959,6 +1994,7 @@ function AuthScreen({onLogin}) {
         *{margin:0;padding:0;box-sizing:border-box}
         input::placeholder{color:${PALETTE.dim}}
         input:focus{border-color:${PALETTE.primary}!important;outline:none}
+        @keyframes fadeUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
       `}</style>
       <div style={{width:"100%",maxWidth:420}}>
         {/* Logo */}
@@ -1968,43 +2004,111 @@ function AuthScreen({onLogin}) {
           <div style={{fontSize:13,color:PALETTE.muted,marginTop:4}}>Your financial command center</div>
         </div>
 
-        {/* Card */}
-        <div style={{...s.card,padding:"30px 28px"}}>
-          {/* Tabs */}
-          <div style={{display:"flex",gap:4,background:"rgba(255,255,255,0.04)",borderRadius:10,padding:4,marginBottom:26}}>
-            {["signin","signup"].map(t=>(
-              <button key={t} onClick={()=>{setTab(t);setErr("");}} style={{flex:1,padding:"8px 0",borderRadius:8,border:"none",background:tab===t?PALETTE.card:"transparent",color:tab===t?PALETTE.text:PALETTE.muted,fontWeight:tab===t?700:500,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
-                {t==="signin"?"Sign In":"Create Account"}
-              </button>
-            ))}
+        {/* ── FORGOT / RESET PASSWORD CARD ── */}
+        {tab === "reset" && (
+          <div style={{...s.card,padding:"30px 28px",animation:"fadeUp 0.3s ease"}}>
+            {!resetDone ? (
+              <>
+                <button onClick={goSignIn} style={{display:"flex",alignItems:"center",gap:6,background:"none",border:"none",color:PALETTE.muted,cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:600,marginBottom:20,padding:0}}>← Back to Sign In</button>
+                <div style={{marginBottom:22}}>
+                  <div style={{fontSize:18,fontWeight:900,color:PALETTE.text,marginBottom:8}}>🔑 Reset Password</div>
+                  <div style={{fontSize:13,color:PALETTE.muted,lineHeight:1.65}}>Enter the email you registered with and choose a new password.</div>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <label style={s.lbl}>Registered Email</label>
+                  <input type="email" value={resetEmail} onChange={e=>setResetEmail(e.target.value)} placeholder="you@example.com" style={inp} autoFocus/>
+                </div>
+                <div style={{marginBottom:14}}>
+                  <label style={s.lbl}>New Password</label>
+                  <div style={{position:"relative"}}>
+                    <input type={showNewPw?"text":"password"} value={newPass} onChange={e=>setNewPass(e.target.value)} placeholder="Min 6 characters" style={{...inp,paddingRight:42}}/>
+                    <button onClick={()=>setShowNewPw(v=>!v)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:PALETTE.muted,cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>{showNewPw?"🙈":"👁"}</button>
+                  </div>
+                  {newPass.length > 0 && (
+                    <div style={{marginTop:7,display:"flex",gap:4,alignItems:"center"}}>
+                      {[1,2,3,4].map(i=>(
+                        <div key={i} style={{flex:1,height:3,borderRadius:99,transition:"background 0.3s",background:i<=strength?strengthColor:"rgba(255,255,255,0.08)"}}/>
+                      ))}
+                      <span style={{fontSize:10,color:strengthColor,flexShrink:0,marginLeft:5,fontWeight:700}}>{strengthLabel}</span>
+                    </div>
+                  )}
+                </div>
+                <div style={{marginBottom:20}}>
+                  <label style={s.lbl}>Confirm New Password</label>
+                  <div style={{position:"relative"}}>
+                    <input type={showConfPw?"text":"password"} value={confirmPass} onChange={e=>setConfirmPass(e.target.value)} placeholder="Repeat new password" style={{...inp,paddingRight:42,borderColor:confirmPass&&confirmPass!==newPass?"#EF4444":undefined}} onKeyDown={e=>e.key==="Enter"&&submitReset()}/>
+                    <button onClick={()=>setShowConfPw(v=>!v)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:PALETTE.muted,cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>{showConfPw?"🙈":"👁"}</button>
+                  </div>
+                  {confirmPass && confirmPass !== newPass && (
+                    <div style={{fontSize:11,color:PALETTE.warning,marginTop:5}}>⚠️ Passwords don't match</div>
+                  )}
+                  {confirmPass && confirmPass === newPass && newPass.length >= 6 && (
+                    <div style={{fontSize:11,color:PALETTE.accent,marginTop:5}}>✅ Passwords match</div>
+                  )}
+                </div>
+                {err&&<div style={{color:"#EF4444",fontSize:13,marginBottom:14,padding:"9px 12px",background:"rgba(239,68,68,0.1)",borderRadius:8,border:"1px solid rgba(239,68,68,0.25)"}}>{err}</div>}
+                <Btn full onClick={submitReset}>Reset Password</Btn>
+              </>
+            ) : (
+              <div style={{textAlign:"center",padding:"10px 0",animation:"fadeUp 0.3s ease"}}>
+                <div style={{fontSize:56,marginBottom:16}}>✅</div>
+                <div style={{fontSize:20,fontWeight:900,color:PALETTE.text,marginBottom:8}}>Password Updated!</div>
+                <div style={{fontSize:13,color:PALETTE.muted,lineHeight:1.7,marginBottom:28}}>Your password has been reset successfully.<br/>You can now sign in with your new password.</div>
+                <Btn full onClick={goSignIn}>Go to Sign In →</Btn>
+              </div>
+            )}
           </div>
+        )}
 
-          {/* Fields */}
-          {tab==="signup"&&(
+        {/* ── SIGN IN / SIGN UP CARD ── */}
+        {tab !== "reset" && (
+          <div style={{...s.card,padding:"30px 28px"}}>
+            {/* Tabs */}
+            <div style={{display:"flex",gap:4,background:"rgba(255,255,255,0.04)",borderRadius:10,padding:4,marginBottom:26}}>
+              {["signin","signup"].map(t=>(
+                <button key={t} onClick={()=>{setTab(t);setErr("");}} style={{flex:1,padding:"8px 0",borderRadius:8,border:"none",background:tab===t?PALETTE.card:"transparent",color:tab===t?PALETTE.text:PALETTE.muted,fontWeight:tab===t?700:500,fontSize:13,cursor:"pointer",fontFamily:"inherit",transition:"all 0.15s"}}>
+                  {t==="signin"?"Sign In":"Create Account"}
+                </button>
+              ))}
+            </div>
+
+            {/* Fields */}
+            {tab==="signup"&&(
+              <div style={{marginBottom:14}}>
+                <label style={s.lbl}>Full Name</label>
+                <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Jordan Rivera" style={inp}/>
+              </div>
+            )}
             <div style={{marginBottom:14}}>
-              <label style={s.lbl}>Full Name</label>
-              <input type="text" value={name} onChange={e=>setName(e.target.value)} placeholder="Jordan Rivera" style={inp}/>
+              <label style={s.lbl}>Email</label>
+              <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" style={inp}/>
             </div>
-          )}
-          <div style={{marginBottom:14}}>
-            <label style={s.lbl}>Email</label>
-            <input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="you@example.com" style={inp}/>
-          </div>
-          <div style={{marginBottom:20}}>
-            <label style={s.lbl}>Password</label>
-            <div style={{position:"relative"}}>
-              <input type={showPw?"text":"password"} value={pass} onChange={e=>setPass(e.target.value)} placeholder="Min 6 characters" style={{...inp,paddingRight:42}} onKeyDown={e=>e.key==="Enter"&&submit()}/>
-              <button onClick={()=>setShowPw(v=>!v)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:PALETTE.muted,cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>
-                {showPw?"🙈":"👁"}
-              </button>
+            <div style={{marginBottom:tab==="signin"?8:20}}>
+              <label style={s.lbl}>Password</label>
+              <div style={{position:"relative"}}>
+                <input type={showPw?"text":"password"} value={pass} onChange={e=>setPass(e.target.value)} placeholder="Min 6 characters" style={{...inp,paddingRight:42}} onKeyDown={e=>e.key==="Enter"&&submit()}/>
+                <button onClick={()=>setShowPw(v=>!v)} style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",background:"none",border:"none",color:PALETTE.muted,cursor:"pointer",fontSize:16,padding:0,lineHeight:1}}>
+                  {showPw?"🙈":"👁"}
+                </button>
+              </div>
             </div>
+
+            {/* Forgot password link — only visible on Sign In tab */}
+            {tab==="signin"&&(
+              <div style={{textAlign:"right",marginBottom:20}}>
+                <button onClick={goReset} style={{background:"none",border:"none",color:PALETTE.primaryLight,cursor:"pointer",fontSize:12,fontWeight:600,fontFamily:"inherit",padding:0,textDecoration:"underline",textUnderlineOffset:2}}>
+                  Forgot password?
+                </button>
+              </div>
+            )}
+
+            {/* Error */}
+            {err&&<div style={{color:"#EF4444",fontSize:13,marginBottom:14,padding:"9px 12px",background:"rgba(239,68,68,0.1)",borderRadius:8,border:"1px solid rgba(239,68,68,0.25)"}}>{err}</div>}
+
+            <Btn full onClick={submit}>{tab==="signin"?"Sign In":"Create Account"}</Btn>
           </div>
+        )}
 
-          {/* Error */}
-          {err&&<div style={{color:"#EF4444",fontSize:13,marginBottom:14,padding:"9px 12px",background:"rgba(239,68,68,0.1)",borderRadius:8,border:"1px solid rgba(239,68,68,0.25)"}}>{err}</div>}
-
-          <Btn full onClick={submit}>{tab==="signin"?"Sign In":"Create Account"}</Btn>
-        </div>
         <p style={{textAlign:"center",color:PALETTE.dim,fontSize:11,marginTop:18}}>Data stored locally on your device</p>
       </div>
     </div>
