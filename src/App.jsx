@@ -561,7 +561,7 @@ function Dashboard({expenses,profile,debts,setPage}) {
       {/* KPI Row */}
       <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(150px,1fr))",gap:12,marginBottom:18}}>
         <StatCard icon="💼" label="Monthly Income"  value={fmt(profile.income)}   color={PALETTE.accent}  sub="This month"/>
-        <StatCard icon="🏦" label="Total Savings"   value={fmt(profile.savings)}  color={PALETTE.primary} sub={`${((profile.income-spent)/profile.income*100).toFixed(0)}% save rate`}/>
+        <StatCard icon="🏦" label="Total Savings"   value={fmt(profile.savings)}  color={PALETTE.primary} sub={`${profile.income>0?((profile.income-spent)/profile.income*100).toFixed(0):"--"}% save rate`}/>
         <StatCard icon="💸" label="Total Spent"     value={fmt(spent)}             color={spent>profile.budget?PALETTE.warning:PALETTE.amber} sub={`of ${fmt(profile.budget)} budget`}/>
         <StatCard icon={remain>=0?"✅":"🚨"} label="Remaining" value={fmt(Math.abs(remain))} color={remain>=0?PALETTE.accent:PALETTE.warning} sub={remain>=0?"Available":"Over budget!"}/>
         <StatCard icon="💳" label="Total Debt"      value={fmt(totalDebt)}         color={PALETTE.violet}  sub={`${debts.length} accounts`} onClick={()=>setPage("debts")}/>
@@ -2031,7 +2031,7 @@ export default function App() {
   const handleLogout = () => { localStorage.removeItem("bg_session"); setSession(""); };
 
   if (!session) return <AuthScreen onLogin={handleLogin}/>;
-  const userName = (JSON.parse(localStorage.getItem("bg_users")||"{}")?.[session]?.name)||"there";
+  const userName = (()=>{try{return JSON.parse(localStorage.getItem("bg_users")||"{}")?.[session]?.name||"there";}catch{return "there";}})();
   return <AppShell session={session} onLogout={handleLogout} userName={userName}/>;
 }
 
@@ -2113,6 +2113,8 @@ function AppShell({session, onLogout, userName}) {
     }
   },[expenses,profile,rules,pushToast]);
 
+  const [mobMore, setMobMore] = useState(false);
+
   if (!onboarded) return <OnboardingWizard onComplete={handleOnboardingComplete} userName={userName}/>;
 
   const unread=notifLog.filter(n=>!n.read).length;
@@ -2129,7 +2131,6 @@ function AppShell({session, onLogout, userName}) {
     {id:"notifs",   icon:"🔔",label:"Alerts",badge:unread},
     {id:"settings", icon:"⚙️",label:"Settings"},
   ];
-  const [mobMore, setMobMore] = useState(false);
   const MOB_TABS=[
     {id:"dashboard",icon:"📊",label:"Home"},
     {id:"expenses", icon:"💸",label:"Expenses"},
