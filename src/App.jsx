@@ -2014,9 +2014,19 @@ function AuthScreen({onLogin}) {
 // MAIN APP
 // ─────────────────────────────────────────────────────────────────────────────
 export default function App() {
-  const [session, setSession] = useState(() => localStorage.getItem("bg_session") || "");
+  // Clear any stale session from old versions (no auth version)
+  if (!localStorage.getItem("bg_auth_v1")) {
+    localStorage.removeItem("bg_session");
+    localStorage.setItem("bg_auth_v1", "1");
+  }
 
-  const handleLogin  = ({email}) => setSession(email);
+  const isValidEmail = (v) => typeof v === "string" && v.includes("@") && v.length > 4;
+  const [session, setSession] = useState(() => {
+    const s = localStorage.getItem("bg_session");
+    return isValidEmail(s) ? s : "";
+  });
+
+  const handleLogin  = ({email}) => { localStorage.setItem("bg_session", email); setSession(email); };
   const handleLogout = () => { localStorage.removeItem("bg_session"); setSession(""); };
 
   if (!session) return <AuthScreen onLogin={handleLogin}/>;
