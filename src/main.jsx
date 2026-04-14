@@ -33,9 +33,22 @@ ReactDOM.createRoot(document.getElementById('root')).render(
   </ErrorBoundary>
 )
 
-// Unregister any existing service workers to prevent caching issues
+// ── PWA: register service worker ──────────────────────────────────────────────
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then(regs => {
-    regs.forEach(r => r.unregister());
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/Vandal-Finance-Hackathon/sw.js')
+      .then(reg => {
+        console.log('[SW] Registered', reg.scope);
+      })
+      .catch(err => console.warn('[SW] Registration failed', err));
   });
 }
+
+// ── PWA: capture install prompt so App.jsx can show a custom install button ──
+window.__pwaInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  window.__pwaInstallPrompt = e;
+  window.dispatchEvent(new CustomEvent('pwaInstallReady'));
+});

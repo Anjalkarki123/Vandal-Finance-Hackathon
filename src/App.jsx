@@ -88,6 +88,80 @@ const LS = {
 // ─────────────────────────────────────────────────────────────────────────────
 // RESPONSIVE HOOK
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// INSTALL BANNER — shows "Add to Home Screen" prompt on mobile
+// ─────────────────────────────────────────────────────────────────────────────
+function InstallBanner() {
+  const [show,    setShow]    = useState(false);
+  const [isIOS,   setIsIOS]   = useState(false);
+  const [android, setAndroid] = useState(false);
+
+  useEffect(() => {
+    // Don't show if already installed (running as standalone PWA)
+    if (window.matchMedia("(display-mode: standalone)").matches) return;
+    if (window.navigator.standalone) return; // iOS standalone
+    if (localStorage.getItem("bg_install_dismissed")) return;
+
+    const ua = navigator.userAgent;
+    const ios = /iphone|ipad|ipod/i.test(ua) && !window.MSStream;
+    setIsIOS(ios);
+
+    if (ios) {
+      // iOS: show instructions (no prompt API available)
+      setTimeout(() => setShow(true), 3000);
+    } else {
+      // Android/Chrome: wait for beforeinstallprompt
+      if (window.__pwaInstallPrompt) {
+        setAndroid(true);
+        setShow(true);
+      } else {
+        const handler = () => { setAndroid(true); setShow(true); };
+        window.addEventListener("pwaInstallReady", handler);
+        return () => window.removeEventListener("pwaInstallReady", handler);
+      }
+    }
+  }, []);
+
+  const dismiss = () => {
+    setShow(false);
+    localStorage.setItem("bg_install_dismissed", "1");
+  };
+
+  const installAndroid = async () => {
+    if (!window.__pwaInstallPrompt) return;
+    window.__pwaInstallPrompt.prompt();
+    const { outcome } = await window.__pwaInstallPrompt.userChoice;
+    window.__pwaInstallPrompt = null;
+    if (outcome === "accepted") dismiss();
+    else setShow(false);
+  };
+
+  if (!show) return null;
+
+  return (
+    <div style={{position:"fixed",bottom:android?"74px":"70px",left:"50%",transform:"translateX(-50%)",width:"calc(100% - 32px)",maxWidth:420,background:"linear-gradient(135deg,#1A1A35,#13132B)",border:"1px solid rgba(99,102,241,0.35)",borderRadius:16,padding:"14px 16px",zIndex:500,boxShadow:"0 8px 32px rgba(0,0,0,0.6)",display:"flex",alignItems:"flex-start",gap:12,animation:"slideUp 0.35s cubic-bezier(0.34,1.56,0.64,1)"}}>
+      <style>{`@keyframes slideUp{from{opacity:0;transform:translate(-50%,20px)}to{opacity:1;transform:translate(-50%,0)}}`}</style>
+      <div style={{width:42,height:42,borderRadius:11,background:"linear-gradient(135deg,#4F46E5,#818CF8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:22,flexShrink:0}}>🛡️</div>
+      <div style={{flex:1,minWidth:0}}>
+        <div style={{fontSize:13,fontWeight:800,color:"#F0F0FF",marginBottom:3}}>Install Budget Guardian</div>
+        {isIOS ? (
+          <div style={{fontSize:11,color:"#8B8BA8",lineHeight:1.6}}>
+            Tap <strong style={{color:"#818CF8"}}>Share</strong> then <strong style={{color:"#818CF8"}}>Add to Home Screen</strong> to install as an app.
+          </div>
+        ) : (
+          <div style={{fontSize:11,color:"#8B8BA8",lineHeight:1.6}}>Add to your home screen for fast, offline access — no App Store needed.</div>
+        )}
+        {android && (
+          <button onClick={installAndroid} style={{marginTop:9,padding:"7px 16px",background:"linear-gradient(135deg,#4F46E5,#818CF8)",border:"none",borderRadius:8,color:"#fff",fontSize:12,fontWeight:800,cursor:"pointer",fontFamily:"inherit"}}>
+            📲 Install App
+          </button>
+        )}
+      </div>
+      <button onClick={dismiss} style={{background:"rgba(255,255,255,0.07)",border:"none",borderRadius:7,width:26,height:26,color:"#8B8BA8",cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontFamily:"inherit"}}>×</button>
+    </div>
+  );
+}
+
 function useIsMobile() {
   const [mob, setMob] = useState(() => window.innerWidth < 768);
   useEffect(() => {
@@ -2306,6 +2380,7 @@ function AppShell({session, onLogout, userName}) {
       `}</style>
 
       <Toast toasts={toasts} dismiss={dismissToast}/>
+      {mob && <InstallBanner/>}
 
       {/* Desktop sidebar */}
       {!mob&&(
